@@ -24,6 +24,16 @@ class Settings(BaseSettings):
     # Database
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/muhasebe"
     
+    @property
+    def async_database_url(self) -> str:
+        """Convert standard postgresql:// URL to asyncpg format."""
+        url = self.database_url
+        if url.startswith("postgresql://"):
+            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        elif url.startswith("postgres://"):
+            url = url.replace("postgres://", "postgresql+asyncpg://", 1)
+        return url
+    
     # CORS
     allowed_origins: str = "http://localhost:3000"
     
