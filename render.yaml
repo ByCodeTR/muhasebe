@@ -1,0 +1,42 @@
+# Render.com deployment configuration
+# https://render.com/docs/yaml-spec
+
+services:
+  # Backend API
+  - type: web
+    name: muhasebe-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    region: frankfurt
+    plan: starter  # $7/mo - always on, no cold starts
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: muhasebe-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "false"
+      - key: ALLOWED_ORIGINS
+        value: "https://muhasebe.vercel.app"
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false  # Set manually in dashboard
+      - key: TELEGRAM_WEBHOOK_SECRET
+        generateValue: true
+      - key: TESSERACT_PATH
+        value: "/usr/bin/tesseract"
+    autoDeploy: true
+    # Custom domain (optional)
+    # customDomains:
+    #   - api.muhasebe.com
+
+databases:
+  - name: muhasebe-db
+    plan: starter  # $7/mo - 1GB storage
+    region: frankfurt
+    databaseName: muhasebe
+    user: muhasebe_user
+    ipAllowList: []  # Allow all (Render internal network)
