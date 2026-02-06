@@ -85,101 +85,125 @@ async def upload_document(
     Upload a receipt/invoice image for OCR processing.
     Returns a draft with extracted fields for confirmation.
     """
+    # Imports inside function to avoid circular imports
     from app.services.ocr_service import get_ocr_service
     from app.services.extraction_service import get_extraction_service
     from app.services.vendor_matcher import get_vendor_matcher
-    
-    # Validate file type
-    allowed_types = ["image/jpeg", "image/png", "image/webp", "application/pdf"]
-    if file.content_type not in allowed_types:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"File type not allowed. Allowed: {allowed_types}",
+    import traceback
+
+    try:
+        # Validate file type
+        allowed_types = ["image/jpeg", "image/png", "image/webp", "application/pdf"]
+        if file.content_type not in allowed_types:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"File type not allowed. Allowed: {allowed_types}",
+            )
+        
+        # Check file size
+        content = await file.read()
+        if len(content) > settings.max_upload_size:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"File too large. Max size: {settings.max_upload_size / 1024 / 1024}MB",
+            )
+        
+        # Calculate hash
+        file_hash = hashlib.sha256(content).hexdigest()
+        
+        # Save file locally
+        upload_dir = Path(settings.upload_dir)
+        try:
+            upload_dir.mkdir(parents=True, exist_ok=True)
+        except Exception as e:
+            # Fallback to /tmp if permissions fail
+            upload_dir = Path("/tmp/uploads")
+            upload_dir.mkdir(parents=True, exist_ok=True)
+        
+        file_ext = Path(file.filename or "image.jpg").suffix
+        file_path = upload_dir / f"{file_hash}{file_ext}"
+        
+        with open(file_path, "wb") as f:
+            f.write(content)
+        
+        # OCR Processing
+        ocr_service = get_ocr_service()
+        extraction_service = get_extraction_service()
+        vendor_matcher = get_vendor_matcher()
+        
+        # Extract text from image
+        ocr_result = ocr_service.extract_text(str(file_path))
+        raw_text = ocr_result.get('text', '')
+        # Log debug info
+        print(f"OCR Result: {ocr_result}")
+        
+        # Extract structured fields
+        extraction = extraction_service.extract(raw_text)
+        
+        # Try to match vendor
+        # Fix: Ensure user_id is UUID
+        user_id = uuid.UUID("00000000-0000-0000-0000-000000000001") 
+        
+        vendor_match = await vendor_matcher.find_match(
+            db,
+            user_id,
+            vendor_name=extraction.vendor_name,
+            vkn=extraction.vendor_vkn,
+            tckn=extraction.vendor_tckn,
         )
-    
-    # Check file size
-    content = await file.read()
-    if len(content) > settings.max_upload_size:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"File too large. Max size: {settings.max_upload_size / 1024 / 1024}MB",
+        
+        # Create document record
+        document = Document(
+            user_id=user_id,
+            vendor_id=vendor_match.vendor_id if not vendor_match.is_new else None,
+            status=DocumentStatus.DRAFT.value,
+            doc_date=extraction.doc_date,
+            doc_no=extraction.doc_no,
+            currency=extraction.currency,
+            total_gross=extraction.total_gross,
+            total_tax=extraction.total_tax,
+            total_net=extraction.total_net,
+            raw_ocr_text=raw_text,
+            extraction_json=extraction.to_dict(),
+            confidence_score=ocr_result.get('confidence', 0),
+            image_url=str(file_path),
+            image_sha256=file_hash,
         )
-    
-    # Calculate hash
-    file_hash = hashlib.sha256(content).hexdigest()
-    
-    # Save file locally (will be replaced with cloud storage)
-    upload_dir = Path(settings.upload_dir)
-    upload_dir.mkdir(parents=True, exist_ok=True)
-    
-    file_ext = Path(file.filename or "image.jpg").suffix
-    file_path = upload_dir / f"{file_hash}{file_ext}"
-    
-    with open(file_path, "wb") as f:
-        f.write(content)
-    
-    # OCR Processing
-    ocr_service = get_ocr_service()
-    extraction_service = get_extraction_service()
-    vendor_matcher = get_vendor_matcher()
-    
-    # Extract text from image
-    ocr_result = ocr_service.extract_text(str(file_path))
-    raw_text = ocr_result.get('text', '')
-    ocr_confidence = ocr_result.get('confidence', 0)
-    
-    # Extract structured fields
-    extraction = extraction_service.extract(raw_text)
-    
-    # Try to match vendor
-    user_id = uuid.UUID("00000000-0000-0000-0000-000000000001")  # TODO: get from auth
-    vendor_match = await vendor_matcher.find_match(
-        db,
-        user_id,
-        vendor_name=extraction.vendor_name,
-        vkn=extraction.vendor_vkn,
-        tckn=extraction.vendor_tckn,
-    )
-    
-    # Create document record
-    document = Document(
-        user_id=user_id,
-        vendor_id=vendor_match.vendor_id if not vendor_match.is_new else None,
-        status=DocumentStatus.DRAFT.value,
-        doc_date=extraction.doc_date,
-        doc_no=extraction.doc_no,
-        currency=extraction.currency,
-        total_gross=extraction.total_gross,
-        total_tax=extraction.total_tax,
-        total_net=extraction.total_net,
-        raw_ocr_text=raw_text,
-        extraction_json=extraction.to_dict(),
-        confidence_score=extraction.confidence,
-        image_url=str(file_path),
-        image_sha256=file_hash,
-    )
-    db.add(document)
-    await db.commit()
-    await db.refresh(document)
-    
-    # Return draft for confirmation
-    return DocumentDraft(
-        vendor_name=extraction.vendor_name,
-        vendor_confidence=vendor_match.confidence if not vendor_match.is_new else None,
-        suggested_vendor_id=vendor_match.vendor_id,
-        doc_date=extraction.doc_date,
-        total_gross=extraction.total_gross,
-        total_tax=extraction.total_tax,
-        currency=extraction.currency,
-        raw_ocr_text=raw_text[:500] if raw_text else None,  # Truncate for response
-        confidence_score=extraction.confidence,
-        extraction_details={
-            "document_id": str(document.id),
-            "ocr_confidence": ocr_confidence,
-            "vendor_match_type": vendor_match.match_type,
-            "is_new_vendor": vendor_match.is_new,
-        },
-    )
+        db.add(document)
+        await db.commit()
+        await db.refresh(document)
+        
+        ocr_confidence = ocr_result.get('confidence', 0)
+        
+        return DocumentDraft(
+            vendor_name=extraction.vendor_name,
+            vendor_confidence=vendor_match.confidence if not vendor_match.is_new else None,
+            suggested_vendor_id=vendor_match.vendor_id,
+            doc_date=extraction.doc_date,
+            total_gross=extraction.total_gross,
+            total_tax=extraction.total_tax,
+            currency=extraction.currency,
+            raw_ocr_text=raw_text[:500] if raw_text else None,
+            confidence_score=extraction.confidence,
+            extraction_details={
+                "document_id": str(document.id),
+                "ocr_confidence": ocr_confidence,
+                "vendor_match_type": vendor_match.match_type,
+                "is_new_vendor": vendor_match.is_new,
+            },
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        error_trace = traceback.format_exc()
+        print(f"Upload Error: {error_trace}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Upload Error: {str(e)}",
+        )
+
+
 
 
 @router.post("/{document_id}/confirm", response_model=DocumentResponse)
