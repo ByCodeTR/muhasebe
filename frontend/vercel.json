@@ -40,7 +40,7 @@
     "rewrites": [
         {
             "source": "/api/:path*",
-            "destination": "https://your-api.onrender.com/:path*"
+            "destination": "https://muhasebe-api-0qa5.onrender.com/:path*"
         }
     ]
 }
