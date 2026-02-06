@@ -5,11 +5,9 @@ services:
   # Backend API - Python Native Runtime
   - type: web
     name: muhasebe-api
-    runtime: python
-    buildCommand: |
-      pip install -r requirements.txt
-      alembic upgrade head || true
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    runtime: docker
+    dockerfilePath: Dockerfile
+    startCommand: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
     rootDir: backend
     region: frankfurt
     plan: free
