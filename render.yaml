@@ -2,14 +2,17 @@
 # https://render.com/docs/yaml-spec
 
 services:
-  # Backend API
+  # Backend API - Python Native Runtime
   - type: web
     name: muhasebe-api
-    runtime: docker
-    dockerfilePath: ./backend/Dockerfile
-    dockerContext: ./backend
+    runtime: python
+    buildCommand: |
+      pip install -r requirements.txt
+      alembic upgrade head || true
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    rootDir: backend
     region: frankfurt
-    plan: starter  # $7/mo - always on, no cold starts
+    plan: free
     healthCheckPath: /health
     envVars:
       - key: DATABASE_URL
@@ -21,22 +24,14 @@ services:
       - key: DEBUG
         value: "false"
       - key: ALLOWED_ORIGINS
-        value: "https://muhasebe.vercel.app"
-      - key: TELEGRAM_BOT_TOKEN
-        sync: false  # Set manually in dashboard
-      - key: TELEGRAM_WEBHOOK_SECRET
-        generateValue: true
-      - key: TESSERACT_PATH
-        value: "/usr/bin/tesseract"
+        value: "https://muhasebe.vercel.app,http://localhost:3000"
+      - key: PYTHON_VERSION
+        value: "3.11.0"
     autoDeploy: true
-    # Custom domain (optional)
-    # customDomains:
-    #   - api.muhasebe.com
 
 databases:
   - name: muhasebe-db
-    plan: starter  # $7/mo - 1GB storage
+    plan: free
     region: frankfurt
     databaseName: muhasebe
     user: muhasebe_user
-    ipAllowList: []  # Allow all (Render internal network)
