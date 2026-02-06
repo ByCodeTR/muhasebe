@@ -141,8 +141,22 @@ async def upload_document(
         extraction = extraction_service.extract(raw_text)
         
         # Try to match vendor
-        # Fix: Ensure user_id is UUID
+        # Fix: Ensure user_id is UUID and exists in DB
         user_id = uuid.UUID("00000000-0000-0000-0000-000000000001") 
+        
+        # Check if user exists, create if not (Self-healing for missing seed data)
+        from app.models.user import User
+        user_check = await db.execute(select(User).where(User.id == user_id))
+        if not user_check.scalar_one_or_none():
+            print(f"Creating default user {user_id}")
+            default_user = User(
+                id=user_id,
+                name="Default User",
+                email="default@example.com",
+                is_active=True
+            )
+            db.add(default_user)
+            await db.commit()  # Commit user first
         
         vendor_match = await vendor_matcher.find_match(
             db,
