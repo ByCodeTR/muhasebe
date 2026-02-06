@@ -24,7 +24,7 @@ services:
       - key: DEBUG
         value: "false"
       - key: ALLOWED_ORIGINS
-        value: "https://muhasebe.vercel.app,http://localhost:3000"
+        value: "https://muhasebe-liart.vercel.app,https://muhasebe.vercel.app,http://localhost:3000"
       - key: PYTHON_VERSION
         value: "3.11.0"
     autoDeploy: true
