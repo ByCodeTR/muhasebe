@@ -44,18 +44,18 @@ class ApiClient {
     }
 
     // Health
-    async healthCheck() {
+    async healthCheck(): Promise<any> {
         return this.request('/health')
     }
 
     // Documents
-    async getDocuments(params?: { status?: string; limit?: number; offset?: number }) {
+    async getDocuments(params?: { status?: string; limit?: number; offset?: number }): Promise<any> {
         return this.request('/documents/', {
             params: params as Record<string, string>,
         })
     }
 
-    async getDrafts() {
+    async getDrafts(): Promise<any> {
         return this.request('/documents/drafts')
     }
 
@@ -80,14 +80,14 @@ class ApiClient {
         return response.json()
     }
 
-    async confirmDocument(id: string, data: any) {
+    async confirmDocument(id: string, data: any): Promise<any> {
         return this.request(`/documents/${id}/confirm`, {
             method: 'POST',
             body: JSON.stringify(data),
         })
     }
 
-    async updateDocument(id: string, data: any) {
+    async updateDocument(id: string, data: any): Promise<any> {
         return this.request(`/documents/${id}`, {
             method: 'PATCH',
             body: JSON.stringify(data),
@@ -95,17 +95,17 @@ class ApiClient {
     }
 
     // Vendors
-    async getVendors(params?: { search?: string; limit?: number }) {
+    async getVendors(params?: { search?: string; limit?: number }): Promise<any> {
         return this.request('/vendors/', {
             params: params as Record<string, string>,
         })
     }
 
-    async searchVendors(q: string) {
+    async searchVendors(q: string): Promise<any> {
         return this.request('/vendors/search', { params: { q } })
     }
 
-    async createVendor(data: any) {
+    async createVendor(data: any): Promise<any> {
         return this.request('/vendors/', {
             method: 'POST',
             body: JSON.stringify(data),
@@ -117,29 +117,29 @@ class ApiClient {
         direction?: string
         vendor_id?: string
         limit?: number
-    }) {
+    }): Promise<any> {
         return this.request('/ledger/entries', {
             params: params as Record<string, string>,
         })
     }
 
-    async createLedgerEntry(data: any) {
+    async createLedgerEntry(data: any): Promise<any> {
         return this.request('/ledger/entries', {
             method: 'POST',
             body: JSON.stringify(data),
         })
     }
 
-    async getCategories() {
+    async getCategories(): Promise<any> {
         return this.request('/ledger/categories')
     }
 
     // Reports
-    async getSummary(period: string = 'month') {
+    async getSummary(period: string = 'month'): Promise<any> {
         return this.request('/reports/summary', { params: { period } })
     }
 
-    async getByVendor(period: string = 'month') {
+    async getByVendor(period: string = 'month'): Promise<any> {
         return this.request('/reports/by-vendor', { params: { period } })
     }
 
