@@ -10,14 +10,6 @@
     "regions": [
         "fra1"
     ],
-    "env": {
-        "NEXT_PUBLIC_API_URL": "@muhasebe_api_url"
-    },
-    "build": {
-        "env": {
-            "NEXT_PUBLIC_API_URL": "@muhasebe_api_url"
-        }
-    },
     "headers": [
         {
             "source": "/(.*)",
