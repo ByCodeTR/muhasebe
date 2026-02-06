@@ -91,11 +91,12 @@ app.include_router(reports_router)
 app.include_router(telegram_router)
 
 # Serve uploaded files (development only)
-if settings.debug:
-    import os
-    upload_path = settings.upload_dir
-    if os.path.exists(upload_path):
-        app.mount("/uploads", StaticFiles(directory=upload_path), name="uploads")
+# Serve uploaded files (always enabled for local storage)
+import os
+upload_path = settings.upload_dir
+if not os.path.exists(upload_path):
+    os.makedirs(upload_path, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=upload_path), name="uploads")
 
 
 if __name__ == "__main__":
