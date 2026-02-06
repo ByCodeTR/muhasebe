@@ -16,7 +16,7 @@ from openpyxl.utils import get_column_letter
 from app.database import get_db
 from app.models.ledger import LedgerEntry, EntryDirection
 from app.models.vendor import Vendor
-from app.models.category import Category if False else None  # Type hint only
+# from app.models.category import Category  # Not used in this file
 from app.schemas.ledger import ReportSummary
 
 router = APIRouter(prefix="/reports", tags=["Reports"])
