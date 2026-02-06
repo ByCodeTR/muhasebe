@@ -59,7 +59,7 @@ class ApiClient {
         return this.request('/documents/drafts')
     }
 
-    async getDocument(id: string) {
+    async getDocument(id: string): Promise<any> {
         return this.request(`/documents/${id}`)
     }
 
