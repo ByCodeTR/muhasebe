@@ -12,7 +12,12 @@ RUN apt-get update && apt-get install -y \
     ffmpeg \
     libsm6 \
     libxext6 \
+    libsm6 \
+    libxext6 \
     && rm -rf /var/lib/apt/lists/*
+
+# Set Tesseract data path explicitly
+ENV TESSDATA_PREFIX=/usr/share/tesseract-ocr/4.00/tessdata
 
 # Install Python dependencies
 COPY requirements.txt .

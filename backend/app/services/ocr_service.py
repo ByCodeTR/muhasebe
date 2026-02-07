@@ -135,16 +135,35 @@ class OCRService:
             processed = self.preprocess_image(image)
             
             # OCR with detailed output
-            data = pytesseract.image_to_data(
-                processed, 
-                config=self.ocr_config,
-                output_type=pytesseract.Output.DICT
-            )
-            
+            try:
+                # Try with preprocessed image
+                data = pytesseract.image_to_data(
+                    processed, 
+                    config=self.ocr_config,
+                    output_type=pytesseract.Output.DICT
+                )
+                
+                # If no text found, try raw image
+                if not any(t.strip() for t in data['text']):
+                    logger.warning("No text found in preprocessed image, trying raw image")
+                    data = pytesseract.image_to_data(
+                        image, 
+                        config=self.ocr_config,
+                        output_type=pytesseract.Output.DICT
+                    )
+            except pytesseract.TesseractError as e:
+                logger.error(f"Tesseract error with config {self.ocr_config}: {e}")
+                # Fallback to English only if Turkish fails
+                fallback_config = '--oem 3 --psm 6'
+                data = pytesseract.image_to_data(
+                    image, 
+                    config=fallback_config,
+                    output_type=pytesseract.Output.DICT
+                )
+
             # Extract text and calculate confidence
             words = []
             confidences = []
-            text_parts = []
             
             n_boxes = len(data['text'])
             for i in range(n_boxes):
@@ -161,19 +180,26 @@ class OCRService:
                         'height': data['height'][i],
                     })
                     confidences.append(conf)
-                    text_parts.append(text)
             
             # Calculate average confidence
             avg_confidence = sum(confidences) / len(confidences) if confidences else 0
             
-            # Get full text (also preserving line breaks)
-            full_text = pytesseract.image_to_string(
-                processed, 
-                config=self.ocr_config
-            )
+            # Reconstruct full text
+            full_text = " ".join([w['text'] for w in words])
+            
+            # If still empty, return debug info
+            if not full_text:
+                import shutil
+                tess_path = shutil.which("tesseract") or "Not found"
+                return {
+                    'text': f"[DEBUG] OCR returned empty. Tesseract path: {tess_path}. Config: {self.ocr_config}",
+                    'confidence': 0,
+                    'words': [],
+                    'word_count': 0,
+                }
             
             return {
-                'text': full_text.strip(),
+                'text': full_text,
                 'confidence': round(avg_confidence, 2),
                 'words': words,
                 'word_count': len(words),
@@ -181,8 +207,9 @@ class OCRService:
             
         except Exception as e:
             logger.error(f"OCR extraction failed: {e}")
+            import traceback
             return {
-                'text': '',
+                'text': f"[ERROR] OCR Failed: {str(e)}\n{traceback.format_exc()}",
                 'confidence': 0,
                 'words': [],
                 'word_count': 0,
