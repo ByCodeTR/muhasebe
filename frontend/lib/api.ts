@@ -67,17 +67,32 @@ class ApiClient {
         const formData = new FormData()
         formData.append('file', file)
 
-        const response = await fetch(`${this.baseUrl}/documents/upload`, {
-            method: 'POST',
-            body: formData,
-        })
+        // 5 minute timeout for Render free tier cold starts + OCR processing
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 5 * 60 * 1000)
 
-        if (!response.ok) {
-            const error = await response.json().catch(() => ({}))
-            throw new Error(error.detail || 'Upload failed')
+        try {
+            const response = await fetch(`${this.baseUrl}/documents/upload`, {
+                method: 'POST',
+                body: formData,
+                signal: controller.signal,
+            })
+
+            clearTimeout(timeoutId)
+
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({}))
+                throw new Error(error.detail || 'Upload failed')
+            }
+
+            return response.json()
+        } catch (err: any) {
+            clearTimeout(timeoutId)
+            if (err.name === 'AbortError') {
+                throw new Error('İşlem zaman aşımına uğradı. Sunucu yoğun, lütfen tekrar deneyin.')
+            }
+            throw err
         }
-
-        return response.json()
     }
 
     async confirmDocument(id: string, data: any): Promise<any> {

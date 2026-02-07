@@ -104,8 +104,8 @@ export default function UploadPage() {
             {/* Upload Area */}
             <div
                 className={`card p-8 border-2 border-dashed transition-colors ${dragActive
-                        ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
-                        : 'border-gray-300 dark:border-gray-600'
+                    ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+                    : 'border-gray-300 dark:border-gray-600'
                     }`}
                 onDragEnter={handleDrag}
                 onDragLeave={handleDrag}
@@ -174,7 +174,7 @@ export default function UploadPage() {
                                     {uploading ? (
                                         <>
                                             <Loader2 className="w-4 h-4 animate-spin" />
-                                            İşleniyor...
+                                            İşleniyor... (Bu 1-2 dakika sürebilir)
                                         </>
                                     ) : (
                                         <>

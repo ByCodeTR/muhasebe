@@ -100,13 +100,7 @@ class OCRService:
     def preprocess_image(self, image: np.ndarray) -> np.ndarray:
         """
         Preprocess image for better OCR accuracy.
-        
-        Steps:
-        1. Convert to grayscale
-        2. Denoise
-        3. Threshold (binarization)
-        4. Deskew
-        5. Remove borders
+        Optimized for low-resource environments (Render free tier).
         """
         # Convert to grayscale if needed
         if len(image.shape) == 3:
@@ -114,23 +108,26 @@ class OCRService:
         else:
             gray = image.copy()
         
-        # Denoise
-        denoised = cv2.fastNlMeansDenoising(gray, None, 10, 7, 21)
+        # Resize large images to speed up processing
+        height, width = gray.shape[:2]
+        max_dim = 2000  # Max dimension for processing
+        if max(height, width) > max_dim:
+            scale = max_dim / max(height, width)
+            gray = cv2.resize(gray, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
+            logger.info(f"Resized image from {width}x{height} to {int(width*scale)}x{int(height*scale)}")
+        
+        # Light denoise with faster bilateral filter (instead of slow fastNlMeansDenoising)
+        denoised = cv2.bilateralFilter(gray, 5, 75, 75)
         
         # Increase contrast
         clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
         enhanced = clahe.apply(denoised)
         
-        # Adaptive thresholding for varying lighting conditions
-        thresh = cv2.adaptiveThreshold(
-            enhanced, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
-            cv2.THRESH_BINARY, 11, 2
-        )
+        # Simple thresholding (faster than adaptive for low-resource)
+        _, thresh = cv2.threshold(enhanced, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
         
-        # Deskew the image
-        deskewed = self._deskew(thresh)
-        
-        return deskewed
+        # Skip deskew on low-resource environments (too slow)
+        return thresh
 
     def _deskew(self, image: np.ndarray) -> np.ndarray:
         """Deskew the image using Hough line transform."""
