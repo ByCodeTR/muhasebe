@@ -7,6 +7,8 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
+from collections import OrderedDict
+import time
 
 from fastapi import APIRouter, HTTPException, Header, Request, status
 from pydantic import BaseModel
@@ -26,6 +28,24 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 router = APIRouter(prefix="/telegram", tags=["Telegram"])
+
+# Simple cache to prevent duplicate update processing (stores last 1000 update_ids)
+_processed_updates: OrderedDict[int, float] = OrderedDict()
+MAX_CACHE_SIZE = 1000
+
+def is_duplicate_update(update_id: int) -> bool:
+    """Check if we've already processed this update."""
+    if update_id in _processed_updates:
+        return True
+    
+    # Add to cache
+    _processed_updates[update_id] = time.time()
+    
+    # Trim cache if too large
+    while len(_processed_updates) > MAX_CACHE_SIZE:
+        _processed_updates.popitem(last=False)
+    
+    return False
 
 
 from pydantic import BaseModel, Field
@@ -499,6 +519,11 @@ async def telegram_webhook(
     try:
         body = await request.json()
         update = TelegramUpdate(**body)
+        
+        # Check for duplicate update (Telegram may retry on timeout)
+        if is_duplicate_update(update.update_id):
+            logger.info(f"Skipping duplicate update: {update.update_id}")
+            return {"ok": True, "skipped": "duplicate"}
         
         if update.message:
             message = update.message
