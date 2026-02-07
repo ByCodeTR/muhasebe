@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     telegram_webhook_url: Optional[str] = None
     
     # OCR
-    tesseract_path: str = "/usr/bin/tesseract"
+    tesseract_path: Optional[str] = None
     
     # File Storage
     upload_dir: str = "uploads"

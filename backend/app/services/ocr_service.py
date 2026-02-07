@@ -25,9 +25,19 @@ class OCRService:
 
     def __init__(self):
         """Initialize OCR service."""
-        # Set Tesseract path if configured
-        if settings.tesseract_path:
+        import shutil
+        
+        # Try to find tesseract binary dynamically
+        tess_path = shutil.which("tesseract")
+        
+        if tess_path:
+            logger.info(f"Tesseract found at: {tess_path}")
+            pytesseract.pytesseract.tesseract_cmd = tess_path
+        elif settings.tesseract_path and Path(settings.tesseract_path).exists():
+            logger.info(f"Using configured Tesseract path: {settings.tesseract_path}")
             pytesseract.pytesseract.tesseract_cmd = settings.tesseract_path
+        else:
+            logger.warning("Tesseract binary not found in PATH or config!")
         
         # Tesseract language auto-discovery
         try:
