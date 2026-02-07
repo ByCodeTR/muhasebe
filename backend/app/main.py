@@ -78,6 +78,13 @@ setup_exception_handlers(app)
 # Add request logging middleware
 app.middleware("http")(log_request_middleware)
 
+@app.middleware("http")
+async def log_cors_headers(request, call_next):
+    origin = request.headers.get("origin")
+    logger.info(f"CORS Debug - Origin: {origin}, Allowed: {settings.cors_origins}")
+    response = await call_next(request)
+    return response
+
 # Add rate limiting middleware (disable in debug mode)
 if not settings.debug:
     app.middleware("http")(rate_limit_middleware)
