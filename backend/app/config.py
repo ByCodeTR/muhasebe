@@ -34,8 +34,8 @@ class Settings(BaseSettings):
             url = url.replace("postgres://", "postgresql+asyncpg://", 1)
         return url
     
-    # CORS
-    allowed_origins: str = "http://localhost:3000"
+    # CORS - include production domains by default
+    allowed_origins: str = "http://localhost:3000,https://muhasebe-liart.vercel.app"
     
     # Telegram
     telegram_bot_token: Optional[str] = None
