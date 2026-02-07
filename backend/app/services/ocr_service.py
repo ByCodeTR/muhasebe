@@ -29,8 +29,18 @@ class OCRService:
         if settings.tesseract_path:
             pytesseract.pytesseract.tesseract_cmd = settings.tesseract_path
         
-        # OCR configuration for Turkish receipts
-        self.ocr_config = r'--oem 3 --psm 6 -l tur+eng'
+        # Tesseract language auto-discovery
+        try:
+            available_langs = pytesseract.get_languages(config='')
+            logger.info(f"Available Tesseract languages: {available_langs}")
+            if 'tur' in available_langs:
+                self.ocr_config = r'--oem 3 --psm 6 -l tur+eng'
+            else:
+                logger.warning("'tur' language data not found, falling back to 'eng'")
+                self.ocr_config = r'--oem 3 --psm 6 -l eng'
+        except Exception as e:
+            logger.error(f"Failed to detect languages: {e}. Defaulting to 'eng'.")
+            self.ocr_config = r'--oem 3 --psm 6 -l eng'
 
     def preprocess_image(self, image: np.ndarray) -> np.ndarray:
         """
