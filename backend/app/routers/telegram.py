@@ -295,7 +295,7 @@ async def process_photo(
         vendor_text = extraction.vendor_name or "Bilinmeyen Cari"
         date_text = extraction.doc_date.strftime("%d.%m.%Y") if extraction.doc_date else "-"
         amount_text = f"{extraction.total_gross:.2f} ₺" if extraction.total_gross else "-"
-        confidence = f"%{extraction.confidence:.0f}"
+        tax_text = f"{extraction.total_tax:.2f} ₺" if extraction.total_tax else "0.00 ₺"
         
         message = f"""
 📋 <b>Taslak Oluşturuldu</b>
@@ -303,7 +303,7 @@ async def process_photo(
 🏢 <b>Cari:</b> {vendor_text}
 📅 <b>Tarih:</b> {date_text}
 💰 <b>Tutar:</b> {amount_text}
-📊 <b>Güven:</b> {confidence}
+💸 <b>KDV:</b> {tax_text}
 
 Bu taslağı onaylayın veya düzenleyin.
 """
@@ -375,6 +375,13 @@ async def handle_callback(
                 document.status = DocumentStatus.CANCELLED.value
                 document.updated_at = datetime.utcnow()
                 await db.commit()
+                
+                # Show popup alert
+                await bot.answer_callback_query(
+                    callback.id,
+                    text="Fiş iptal edildi ✅",
+                    show_alert=True,
+                )
                 
                 await bot.edit_message_text(
                     chat_id,
