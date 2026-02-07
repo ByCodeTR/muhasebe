@@ -26,30 +26,63 @@ class OCRService:
     def __init__(self):
         """Initialize OCR service."""
         import shutil
+        import os
+        import subprocess
         
         # Try to find tesseract binary dynamically
-        # 1. Check specific common paths first (Docker/Linux standard)
-        common_paths = ["/usr/bin/tesseract", "/usr/local/bin/tesseract"]
         found_path = None
-        
-        for p in common_paths:
-            if Path(p).exists() and Path(p).is_file():
-                found_path = p
-                logger.info(f"Tesseract found at explicit path: {p}")
-                break
-        
+
+        # 1. Check configuration first (Highest priority)
+        if settings.tesseract_path and Path(settings.tesseract_path).exists():
+            found_path = settings.tesseract_path
+            logger.info(f"Tesseract using configured path: {found_path}")
+
         # 2. If not found, try shutil.which (PATH lookup)
         if not found_path:
-            found_path = shutil.which("tesseract")
-            if found_path:
+            which_path = shutil.which("tesseract")
+            if which_path:
+                found_path = which_path
                 logger.info(f"Tesseract found via PATH: {found_path}")
 
-        # 3. Configure PyTesseract
+        # 3. Platform specific specific fallback
+        if not found_path:
+            if os.name == 'nt':
+                # Common windows paths
+                win_paths = [
+                    r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+                    r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+                    r"C:\Users\Public\Tesseract-OCR\tesseract.exe"
+                ]
+                for wp in win_paths:
+                    if os.path.exists(wp):
+                        found_path = wp
+                        logger.info(f"Tesseract found at Windows fallback: {wp}")
+                        break
+            else:
+                # Common linux paths
+                common_paths = ["/usr/bin/tesseract", "/usr/local/bin/tesseract"]
+                for p in common_paths:
+                    if os.path.exists(p):
+                        found_path = p
+                        logger.info(f"Tesseract found at Linux fallback: {p}")
+                        break
+
+        # 4. Configure or Fail
         if found_path:
-            pytesseract.pytesseract.tesseract_cmd = found_path
+            # Validate that it actually runs
+            try:
+                subprocess.run([found_path, "--version"], capture_output=True, check=True, timeout=5)
+                pytesseract.pytesseract.tesseract_cmd = found_path
+                logger.info(f"Tesseract successfully initialised at: {found_path}")
+            except Exception as e:
+                logger.error(f"Tesseract found at {found_path} but failed to run: {e}")
+                # Don't unset found_path here, let it try anyway or maybe it's just a version check fail
+                # But typically if version check fails, OCR will fail too.
+                # However, for now we set it.
+                pytesseract.pytesseract.tesseract_cmd = found_path
         else:
-            logger.error("CRITICAL: Tesseract binary NOT found in paths or PATH variable!")
-            # Don't set cmd, let it default (and likely fail, but we logged it)
+            logger.error("CRITICAL: No working Tesseract binary found! OCR will fail.")
+
         
         # Tesseract language auto-discovery
         try:

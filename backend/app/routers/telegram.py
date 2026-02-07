@@ -28,6 +28,8 @@ settings = get_settings()
 router = APIRouter(prefix="/telegram", tags=["Telegram"])
 
 
+from pydantic import BaseModel, Field
+
 # Pydantic models for Telegram updates
 class TelegramUser(BaseModel):
     id: int
@@ -61,7 +63,7 @@ class TelegramDocument(BaseModel):
 
 class TelegramMessage(BaseModel):
     message_id: int
-    from_user: Optional[TelegramUser] = None
+    from_user: Optional[TelegramUser] = Field(None, alias="from")
     chat: TelegramChat
     date: int
     text: Optional[str] = None
@@ -71,17 +73,16 @@ class TelegramMessage(BaseModel):
 
     class Config:
         populate_by_name = True
-        
-    def model_post_init(self, __context):
-        # Handle 'from' field mapping
-        pass
 
 
 class TelegramCallbackQuery(BaseModel):
     id: str
-    from_user: TelegramUser
+    from_user: TelegramUser = Field(..., alias="from")
     message: Optional[TelegramMessage] = None
     data: Optional[str] = None
+
+    class Config:
+        populate_by_name = True
 
 
 class TelegramUpdate(BaseModel):

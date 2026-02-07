@@ -6,13 +6,17 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     tesseract-ocr \
     tesseract-ocr-tur \
-    libgl1-mesa-glx \
+    libgl1 \
     libglib2.0-0 \
     poppler-utils \
     ffmpeg \
     libsm6 \
     libxext6 \
     && rm -rf /var/lib/apt/lists/*
+
+# Fix permissions and verify installation
+RUN chmod 755 /usr/bin/tesseract || true
+RUN tesseract --version || echo "Tesseract installation warning"
 
 # Install Python dependencies
 COPY requirements.txt .
