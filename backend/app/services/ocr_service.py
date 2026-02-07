@@ -28,16 +28,28 @@ class OCRService:
         import shutil
         
         # Try to find tesseract binary dynamically
-        tess_path = shutil.which("tesseract")
+        # 1. Check specific common paths first (Docker/Linux standard)
+        common_paths = ["/usr/bin/tesseract", "/usr/local/bin/tesseract"]
+        found_path = None
         
-        if tess_path:
-            logger.info(f"Tesseract found at: {tess_path}")
-            pytesseract.pytesseract.tesseract_cmd = tess_path
-        elif settings.tesseract_path and Path(settings.tesseract_path).exists():
-            logger.info(f"Using configured Tesseract path: {settings.tesseract_path}")
-            pytesseract.pytesseract.tesseract_cmd = settings.tesseract_path
+        for p in common_paths:
+            if Path(p).exists() and Path(p).is_file():
+                found_path = p
+                logger.info(f"Tesseract found at explicit path: {p}")
+                break
+        
+        # 2. If not found, try shutil.which (PATH lookup)
+        if not found_path:
+            found_path = shutil.which("tesseract")
+            if found_path:
+                logger.info(f"Tesseract found via PATH: {found_path}")
+
+        # 3. Configure PyTesseract
+        if found_path:
+            pytesseract.pytesseract.tesseract_cmd = found_path
         else:
-            logger.warning("Tesseract binary not found in PATH or config!")
+            logger.error("CRITICAL: Tesseract binary NOT found in paths or PATH variable!")
+            # Don't set cmd, let it default (and likely fail, but we logged it)
         
         # Tesseract language auto-discovery
         try:
